@@ -15,10 +15,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.glycemiq.ui.components.ChipSelector
 import com.glycemiq.ui.components.EmptyStateMessage
 import com.glycemiq.ui.components.GlucoseChart
 import com.glycemiq.ui.components.GlycemCard
+import com.glycemiq.ui.components.HorizontalChipSelector
 import com.glycemiq.ui.components.SectionTitle
 import com.glycemiq.ui.viewmodel.ChartType
 import com.glycemiq.ui.viewmodel.ChartsViewModel
@@ -34,35 +34,36 @@ fun ChartsScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(20.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        SectionTitle("Visualización de glucosa")
+        SectionTitle("Visualización de glucosa", compact = true)
 
         Text(
-            text = "Verde: normal · Naranja: moderado · Rojo: alto o bajo",
+            text = "Verde: normal · Naranja: moderado · Rojo: crítico",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        ChipSelector(
+        HorizontalChipSelector(
             options = chartTypes.map { it.label },
             selectedIndex = chartTypes.indexOf(state.chartType),
             onSelected = { index -> viewModel.setChartType(chartTypes[index]) }
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         if (state.isEmpty) {
             EmptyStateMessage("No hay datos suficientes para mostrar gráficas.")
         } else {
-            GlycemCard {
+            GlycemCard(contentPadding = 12.dp) {
                 Text(
                     text = state.chartType.label,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 GlucoseChart(dataPoints = state.dataPoints)
             }
         }

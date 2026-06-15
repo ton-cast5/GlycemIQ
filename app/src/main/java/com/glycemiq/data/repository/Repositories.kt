@@ -1,9 +1,7 @@
 package com.glycemiq.data.repository
 
-import com.glycemiq.data.local.dao.GlucoseDao
-import com.glycemiq.data.local.dao.MedicationDao
-import com.glycemiq.data.local.entity.GlucoseRecord
-import com.glycemiq.data.local.entity.Medication
+import com.glycemiq.data.remote.SupabaseApi
+import com.glycemiq.data.remote.dto.MedicationInsertDto
 import com.glycemiq.domain.model.ChartDataPoint
 import com.glycemiq.domain.model.GlucoseContext
 import com.glycemiq.domain.model.GlucoseLevel
@@ -11,9 +9,12 @@ import com.glycemiq.domain.model.GlucoseRecordUi
 import com.glycemiq.domain.model.MedicationUi
 import com.glycemiq.domain.model.Recommendation
 import com.glycemiq.util.DateTimeUtils
-import com.glycemiq.util.toUi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
@@ -21,123 +22,152 @@ import javax.inject.Singleton
 
 @Singleton
 class GlucoseRepository @Inject constructor(
-    private val glucoseDao: GlucoseDao
+    private val supabaseApi: SupabaseApi
 ) {
-    fun getAllRecords(): Flow<List<GlucoseRecordUi>> =
-        glucoseDao.getAllRecords().map { records -> records.map { it.toUi() } }
+    private val mutex = Mutex()
+    private val _records = MutableStateFlow<List<GlucoseRecordUi>>(emptyList())
+
+    suspend fun refresh() {
+        mutex.withLock {
+            _records.value = supabaseApi.fetchGlucoseRecords()
+        }
+    }
+
+    fun getAllRecords(): Flow<List<GlucoseRecordUi>> = _records.asStateFlow()
+
+    fun getRecordsSnapshot(): List<GlucoseRecordUi> = _records.value
 
     fun getRecentRecords(limit: Int = 5): Flow<List<GlucoseRecordUi>> =
-        glucoseDao.getRecentRecords(limit).map { records -> records.map { it.toUi() } }
+        _records.asStateFlow().map { it.take(limit) }
 
-    suspend fun addRecord(value: Int, context: GlucoseContext, timestamp: Long = DateTimeUtils.nowMillis()): Long {
+    suspend fun addRecord(value: Int, context: GlucoseContext, timestamp: Long = DateTimeUtils.nowMillis()): String {
         require(value in 20..600) { "El nivel de glucosa debe estar entre 20 y 600 mg/dL" }
-        return glucoseDao.insert(
-            GlucoseRecord(
-                value = value,
-                context = context.name,
-                timestamp = timestamp
-            )
-        )
+        val record = supabaseApi.insertGlucoseRecord(value, context.name, timestamp)
+        mutex.withLock {
+            _records.value = listOf(record) + _records.value
+        }
+        return record.id
     }
 
-    suspend fun deleteRecord(id: Long) {
-        glucoseDao.getById(id)?.let { glucoseDao.delete(it) }
+    suspend fun deleteRecord(id: String) {
+        supabaseApi.deleteGlucoseRecord(id)
+        mutex.withLock {
+            _records.value = _records.value.filter { it.id != id }
+        }
     }
 
-    fun getRecordsForCharts(days: Int = 30): Flow<List<GlucoseRecordUi>> {
+    suspend fun getRecordsForCharts(days: Int = 60): List<GlucoseRecordUi> {
         val startTime = Instant.now()
             .atZone(DateTimeUtils.MEXICO_ZONE)
             .minus(days.toLong(), ChronoUnit.DAYS)
             .toInstant()
             .toEpochMilli()
-        return glucoseDao.getRecordsSince(startTime).map { records -> records.map { it.toUi() } }
+        return supabaseApi.fetchGlucoseRecordsSince(startTime)
     }
 
-    fun calculateDailyAverages(records: List<GlucoseRecordUi>): List<ChartDataPoint> {
-        return records
+    fun calculateDailyAverages(records: List<GlucoseRecordUi>): List<ChartDataPoint> =
+        records
             .groupBy { DateTimeUtils.formatDate(it.timestamp) }
             .map { (date, dayRecords) ->
                 val avg = dayRecords.map { it.value }.average().toFloat()
-                ChartDataPoint(
-                    label = date,
-                    value = avg,
-                    level = GlucoseLevel.classify(avg.toInt())
-                )
+                ChartDataPoint(date, avg, GlucoseLevel.classify(avg.toInt()))
             }
             .sortedBy { it.label }
-    }
 
-    fun calculateWeeklyAverages(records: List<GlucoseRecordUi>): List<ChartDataPoint> {
-        return records
+    fun calculateWeeklyAverages(records: List<GlucoseRecordUi>): List<ChartDataPoint> =
+        records
             .groupBy { record ->
                 val zoned = Instant.ofEpochMilli(record.timestamp).atZone(DateTimeUtils.MEXICO_ZONE)
                 val weekStart = zoned.toLocalDate().with(java.time.DayOfWeek.MONDAY)
-                DateTimeUtils.formatDate(weekStart.atStartOfDay(DateTimeUtils.MEXICO_ZONE).toInstant().toEpochMilli())
+                DateTimeUtils.formatDate(
+                    weekStart.atStartOfDay(DateTimeUtils.MEXICO_ZONE).toInstant().toEpochMilli()
+                )
             }
             .map { (week, weekRecords) ->
                 val avg = weekRecords.map { it.value }.average().toFloat()
-                ChartDataPoint(
-                    label = "Sem. $week",
-                    value = avg,
-                    level = GlucoseLevel.classify(avg.toInt())
-                )
+                ChartDataPoint("Sem. $week", avg, GlucoseLevel.classify(avg.toInt()))
             }
             .sortedBy { it.label }
-    }
 
     fun toIndividualPoints(records: List<GlucoseRecordUi>): List<ChartDataPoint> =
         records.map { record ->
             ChartDataPoint(
-                label = DateTimeUtils.formatDateTime(record.timestamp),
-                value = record.value.toFloat(),
-                level = record.level
+                DateTimeUtils.formatDateTime(record.timestamp),
+                record.value.toFloat(),
+                record.level
             )
         }
 }
 
 @Singleton
 class MedicationRepository @Inject constructor(
-    private val medicationDao: MedicationDao
+    private val supabaseApi: SupabaseApi
 ) {
-    fun getAllMedications(): Flow<List<MedicationUi>> =
-        medicationDao.getAllMedications().map { meds -> meds.map { it.toUi() } }
+    private val mutex = Mutex()
+    private val _medications = MutableStateFlow<List<MedicationUi>>(emptyList())
+
+    suspend fun refresh() {
+        mutex.withLock {
+            _medications.value = supabaseApi.fetchMedications()
+        }
+    }
+
+    fun getAllMedications(): Flow<List<MedicationUi>> = _medications.asStateFlow()
 
     fun getActiveMedications(): Flow<List<MedicationUi>> =
-        medicationDao.getActiveMedications().map { meds -> meds.map { it.toUi() } }
+        _medications.asStateFlow().map { meds -> meds.filter { it.isActive } }
 
-    suspend fun addMedication(name: String, dose: String, hour: Int, minute: Int): Long {
+    fun getRecommendableMedications(): Flow<List<MedicationUi>> =
+        _medications.asStateFlow().map { meds ->
+            meds.filter { it.isActive && it.recommendForHighGlucose }
+        }
+
+    suspend fun addMedication(
+        name: String,
+        dose: String,
+        hour: Int,
+        minute: Int,
+        intervalHours: Int,
+        recommendForHighGlucose: Boolean
+    ): String {
         require(name.isNotBlank()) { "El nombre del medicamento es obligatorio" }
         require(dose.isNotBlank()) { "La dosis es obligatoria" }
         require(hour in 0..23 && minute in 0..59) { "Hora inválida" }
-        return medicationDao.insert(
-            Medication(
+        val med = supabaseApi.insertMedication(
+            MedicationInsertDto(
+                deviceId = "",
                 name = name.trim(),
                 dose = dose.trim(),
                 scheduledHour = hour,
-                scheduledMinute = minute
+                scheduledMinute = minute,
+                intervalHours = intervalHours,
+                recommendForHighGlucose = recommendForHighGlucose
             )
         )
+        mutex.withLock {
+            _medications.value = _medications.value + med
+        }
+        return med.id
     }
 
     suspend fun updateMedication(medication: MedicationUi) {
-        medicationDao.update(
-            Medication(
-                id = medication.id,
-                name = medication.name,
-                dose = medication.dose,
-                scheduledHour = medication.scheduledHour,
-                scheduledMinute = medication.scheduledMinute,
-                isActive = medication.isActive
-            )
-        )
+        supabaseApi.updateMedication(medication)
+        mutex.withLock {
+            _medications.value = _medications.value.map {
+                if (it.id == medication.id) medication else it
+            }
+        }
     }
 
-    suspend fun deleteMedication(id: Long) {
-        medicationDao.getById(id)?.let { medicationDao.delete(it) }
+    suspend fun deleteMedication(id: String) {
+        supabaseApi.deleteMedication(id)
+        mutex.withLock {
+            _medications.value = _medications.value.filter { it.id != id }
+        }
     }
 
-    suspend fun getMedicationById(id: Long): MedicationUi? =
-        medicationDao.getById(id)?.toUi()
+    suspend fun getMedicationById(id: String): MedicationUi? =
+        supabaseApi.getMedicationById(id)
 }
 
 @Singleton
@@ -150,17 +180,19 @@ class RecommendationEngine @Inject constructor() {
 
         return when (latestGlucose.level) {
             GlucoseLevel.HIGH -> {
-                val activeMeds = medications.filter { it.isActive }.map { it.name }
-                if (activeMeds.isEmpty()) {
+                val recommendedMeds = medications
+                    .filter { it.isActive && it.recommendForHighGlucose }
+                    .map { it.name }
+                if (recommendedMeds.isEmpty()) {
                     Recommendation(
                         message = "Tu glucosa está elevada (${latestGlucose.value} mg/dL). " +
-                            "Consulta a tu médico y considera registrar tus medicamentos en la app."
+                            "Marca medicamentos como recomendados para glucosa alta."
                     )
                 } else {
                     Recommendation(
                         message = "Tu glucosa está elevada (${latestGlucose.value} mg/dL). " +
-                            "Según tus registros, podrías considerar los siguientes medicamentos:",
-                        medications = activeMeds
+                            "Medicamentos recomendados:",
+                        medications = recommendedMeds
                     )
                 }
             }
@@ -173,5 +205,16 @@ class RecommendationEngine @Inject constructor() {
                     "¡Sigue con tus buenos hábitos!"
             )
         }
+    }
+}
+
+@Singleton
+class DataSyncManager @Inject constructor(
+    private val glucoseRepository: GlucoseRepository,
+    private val medicationRepository: MedicationRepository
+) {
+    suspend fun syncAll() {
+        glucoseRepository.refresh()
+        medicationRepository.refresh()
     }
 }

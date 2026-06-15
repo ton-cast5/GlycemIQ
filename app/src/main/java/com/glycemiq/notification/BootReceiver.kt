@@ -3,7 +3,8 @@ package com.glycemiq.notification
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.glycemiq.data.local.GlycemIQDatabase
+import com.glycemiq.data.repository.DataSyncManager
+import com.glycemiq.data.repository.MedicationRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +20,10 @@ class BootReceiver : BroadcastReceiver() {
     lateinit var alarmScheduler: MedicationAlarmScheduler
 
     @Inject
-    lateinit var database: GlycemIQDatabase
+    lateinit var medicationRepository: MedicationRepository
+
+    @Inject
+    lateinit var dataSyncManager: DataSyncManager
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -30,8 +34,9 @@ class BootReceiver : BroadcastReceiver() {
             val pendingResult = goAsync()
             scope.launch {
                 try {
-                    val medications = database.medicationDao().getAllMedications().first()
-                    alarmScheduler.rescheduleAll(medications.filter { it.isActive })
+                    dataSyncManager.syncAll()
+                    val medications = medicationRepository.getAllMedications().first()
+                    alarmScheduler.rescheduleAll(medications)
                 } finally {
                     pendingResult.finish()
                 }

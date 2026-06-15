@@ -22,16 +22,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.glycemiq.domain.model.GlucoseContext
-import com.glycemiq.ui.components.ChipSelector
-import com.glycemiq.ui.components.EmptyStateMessage
 import com.glycemiq.ui.components.GlucoseLevelBadge
 import com.glycemiq.ui.components.GlycemCard
+import com.glycemiq.ui.components.GlycemNumericField
 import com.glycemiq.ui.components.GlycemPrimaryButton
-import com.glycemiq.ui.components.GlycemTextField
+import com.glycemiq.ui.components.HorizontalChipSelector
 import com.glycemiq.ui.components.MessageBanner
 import com.glycemiq.ui.components.SectionTitle
 import com.glycemiq.ui.viewmodel.GlucoseViewModel
@@ -46,7 +44,7 @@ fun GlucoseScreen(
 
     LaunchedEffect(formState.successMessage) {
         if (formState.successMessage != null) {
-            kotlinx.coroutines.delay(3000)
+            kotlinx.coroutines.delay(2500)
             viewModel.clearMessages()
         }
     }
@@ -55,73 +53,85 @@ fun GlucoseScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(20.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        SectionTitle("Registrar glucosa")
+        SectionTitle("Registrar glucosa", compact = true)
 
         formState.errorMessage?.let {
             MessageBanner(message = it, isError = true)
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
         }
         formState.successMessage?.let {
             MessageBanner(message = it, isError = false)
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
         }
 
-        GlycemCard {
-            GlycemTextField(
+        GlycemCard(contentPadding = 12.dp) {
+            GlycemNumericField(
                 value = formState.value,
                 onValueChange = viewModel::updateValue,
-                label = "Nivel de glucosa (mg/dL)"
+                label = "Glucosa (mg/dL)"
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             Text(
                 text = "Contexto",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             val contexts = GlucoseContext.entries
-            ChipSelector(
+            HorizontalChipSelector(
                 options = contexts.map { it.label },
                 selectedIndex = contexts.indexOf(formState.context),
                 onSelected = { index -> viewModel.updateContext(contexts[index]) }
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                text = "Fecha y hora: ${DateTimeUtils.formatDateTime(formState.timestamp)}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            formState.previewLevel?.let { level ->
-                Spacer(modifier = Modifier.height(12.dp))
-                val value = formState.value.toIntOrNull() ?: 0
-                GlucoseLevelBadge(level = level, value = value)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = DateTimeUtils.formatDateTime(formState.timestamp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                formState.previewLevel?.let { level ->
+                    val value = formState.value.toIntOrNull() ?: 0
+                    GlucoseLevelBadge(level = level, value = value, compact = true)
+                }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             GlycemPrimaryButton(
-                text = if (formState.isSaving) "Guardando..." else "Guardar registro",
+                text = if (formState.isSaving) "Guardando..." else "Guardar",
                 onClick = viewModel::saveRecord,
-                enabled = !formState.isSaving
+                enabled = !formState.isSaving,
+                compact = true
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-        SectionTitle("Historial")
+        Spacer(modifier = Modifier.height(16.dp))
+        SectionTitle("Historial", compact = true)
 
         if (listState.records.isEmpty()) {
-            EmptyStateMessage("No hay registros en el historial.")
+            Text(
+                text = "Sin registros aún.",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         } else {
             listState.records.forEach { record ->
-                GlycemCard(modifier = Modifier.padding(bottom = 12.dp)) {
+                GlycemCard(
+                    modifier = Modifier.padding(bottom = 8.dp),
+                    contentPadding = 12.dp
+                ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -129,16 +139,12 @@ fun GlucoseScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = DateTimeUtils.formatDateTime(record.timestamp),
+                                text = "${record.context.label} · ${DateTimeUtils.formatDateTime(record.timestamp)}",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = record.context.label,
-                                style = MaterialTheme.typography.bodyMedium
+                                maxLines = 2
                             )
                             Spacer(modifier = Modifier.height(4.dp))
-                            GlucoseLevelBadge(level = record.level, value = record.value)
+                            GlucoseLevelBadge(level = record.level, value = record.value, compact = true)
                         }
                         IconButton(onClick = { viewModel.deleteRecord(record.id) }) {
                             Icon(

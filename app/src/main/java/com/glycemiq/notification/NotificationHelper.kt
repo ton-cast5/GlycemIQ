@@ -35,13 +35,13 @@ class NotificationHelper @Inject constructor(
         notificationManager.createNotificationChannel(channel)
     }
 
-    fun showMedicationReminder(medicationId: Long, medicationName: String) {
+    fun showMedicationReminder(medicationId: String, medicationName: String) {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
         val pendingIntent = PendingIntent.getActivity(
             context,
-            medicationId.toInt(),
+            medicationId.hashCode(),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -58,7 +58,7 @@ class NotificationHelper @Inject constructor(
             .setContentIntent(pendingIntent)
             .build()
 
-        notificationManager.notify(medicationId.toInt(), notification)
+        notificationManager.notify(medicationId.hashCode(), notification)
     }
 
     companion object {

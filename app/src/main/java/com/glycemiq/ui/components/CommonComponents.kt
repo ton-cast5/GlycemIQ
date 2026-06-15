@@ -1,15 +1,19 @@
 package com.glycemiq.ui.components
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -27,6 +31,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.glycemiq.domain.model.GlucoseLevel
 import com.glycemiq.ui.theme.GlucoseCritical
@@ -51,56 +58,61 @@ fun glucoseLevelContainerColor(level: GlucoseLevel): Color = when (level) {
 @Composable
 fun GlycemCard(
     modifier: Modifier = Modifier,
+    contentPadding: Dp = 16.dp,
     onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
+    val cardModifier = modifier.fillMaxWidth()
+    val innerPadding = Modifier.padding(contentPadding)
+
     if (onClick != null) {
         Card(
-            modifier = modifier.fillMaxWidth(),
+            modifier = cardModifier,
             onClick = onClick,
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(14.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                content()
-            }
+            Column(modifier = innerPadding) { content() }
         }
     } else {
         Card(
-            modifier = modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
+            modifier = cardModifier,
+            shape = RoundedCornerShape(14.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                content()
-            }
+            Column(modifier = innerPadding) { content() }
         }
     }
 }
 
 @Composable
-fun GlucoseLevelBadge(level: GlucoseLevel, value: Int) {
+fun GlucoseLevelBadge(level: GlucoseLevel, value: Int, compact: Boolean = false) {
     Surface(
         color = glucoseLevelContainerColor(level),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(10.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(
+                horizontal = if (compact) 10.dp else 14.dp,
+                vertical = if (compact) 4.dp else 6.dp
+            ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                modifier = Modifier.size(12.dp),
+                modifier = Modifier.size(if (compact) 8.dp else 10.dp),
                 color = glucoseLevelColor(level),
-                shape = RoundedCornerShape(6.dp)
+                shape = RoundedCornerShape(5.dp)
             ) {}
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = "${value} mg/dL — ${level.label}",
-                style = MaterialTheme.typography.titleMedium,
+                style = if (compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleMedium,
                 color = glucoseLevelColor(level),
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }
@@ -111,23 +123,24 @@ fun GlycemPrimaryButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    compact: Boolean = false
 ) {
     Button(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp),
+            .height(if (compact) 48.dp else 52.dp),
         enabled = enabled,
-        shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary
-        )
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
     ) {
         Text(
             text = text,
             style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -142,13 +155,10 @@ fun GlycemOutlinedButton(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp),
-        shape = RoundedCornerShape(14.dp)
+            .height(48.dp),
+        shape = RoundedCornerShape(12.dp)
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelLarge
-        )
+        Text(text = text, style = MaterialTheme.typography.labelLarge, maxLines = 1)
     }
 }
 
@@ -158,16 +168,18 @@ fun GlycemTextField(
     onValueChange: (String) -> Unit,
     label: String,
     modifier: Modifier = Modifier,
-    singleLine: Boolean = true
+    singleLine: Boolean = true,
+    keyboardType: KeyboardType = KeyboardType.Text
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label, style = MaterialTheme.typography.bodyMedium) },
+        label = { Text(label, style = MaterialTheme.typography.bodyMedium, maxLines = 1) },
         modifier = modifier.fillMaxWidth(),
         singleLine = singleLine,
         textStyle = MaterialTheme.typography.bodyLarge,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(10.dp),
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
             unfocusedBorderColor = MaterialTheme.colorScheme.outline
@@ -176,24 +188,46 @@ fun GlycemTextField(
 }
 
 @Composable
-fun SectionTitle(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleLarge,
-        color = MaterialTheme.colorScheme.onBackground,
-        fontWeight = FontWeight.Bold
+fun GlycemNumericField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    GlycemTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = label,
+        modifier = modifier,
+        keyboardType = KeyboardType.Number
     )
-    Spacer(modifier = Modifier.height(12.dp))
 }
 
 @Composable
-fun ChipSelector(
+fun SectionTitle(text: String, compact: Boolean = false) {
+    Text(
+        text = text,
+        style = if (compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+        color = MaterialTheme.colorScheme.onBackground,
+        fontWeight = FontWeight.Bold,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis
+    )
+    Spacer(modifier = Modifier.height(if (compact) 8.dp else 10.dp))
+}
+
+@Composable
+fun HorizontalChipSelector(
     options: List<String>,
     selectedIndex: Int,
-    onSelected: (Int) -> Unit
+    onSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    val scrollState = rememberScrollState()
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(scrollState),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         options.forEachIndexed { index, option ->
@@ -203,9 +237,12 @@ fun ChipSelector(
                 label = {
                     Text(
                         text = option,
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 },
+                modifier = Modifier.heightIn(min = 40.dp),
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                     selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -216,8 +253,17 @@ fun ChipSelector(
 }
 
 @Composable
+fun ChipSelector(
+    options: List<String>,
+    selectedIndex: Int,
+    onSelected: (Int) -> Unit
+) {
+    HorizontalChipSelector(options, selectedIndex, onSelected)
+}
+
+@Composable
 fun EmptyStateMessage(message: String) {
-    GlycemCard {
+    GlycemCard(contentPadding = 14.dp) {
         Text(
             text = message,
             style = MaterialTheme.typography.bodyLarge,
@@ -231,11 +277,11 @@ fun MessageBanner(message: String, isError: Boolean) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = if (isError) GlucoseCriticalContainer else GlucoseNormalContainer,
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(10.dp)
     ) {
         Text(
             text = message,
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(12.dp),
             style = MaterialTheme.typography.bodyMedium,
             color = if (isError) GlucoseCritical else GlucoseNormal
         )

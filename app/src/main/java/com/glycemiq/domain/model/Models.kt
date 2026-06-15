@@ -1,9 +1,9 @@
 package com.glycemiq.domain.model
 
-enum class GlucoseContext(val label: String) {
-    FASTING("En ayunas"),
-    BEFORE_MEAL("Antes de comer"),
-    AFTER_MEAL("Después de comer");
+enum class GlucoseContext(val label: String, val shortLabel: String) {
+    FASTING("En ayunas", "Ayunas"),
+    BEFORE_MEAL("Antes de comer", "Antes"),
+    AFTER_MEAL("Después de comer", "Después");
 
     companion object {
         fun fromName(name: String): GlucoseContext =
@@ -25,8 +25,20 @@ enum class GlucoseLevel(val label: String) {
     }
 }
 
+enum class MedicationInterval(val hours: Int, val label: String) {
+    EVERY_6_HOURS(6, "Cada 6 h"),
+    EVERY_8_HOURS(8, "Cada 8 h"),
+    EVERY_12_HOURS(12, "Cada 12 h"),
+    EVERY_24_HOURS(24, "Cada 24 h");
+
+    companion object {
+        fun fromHours(hours: Int): MedicationInterval =
+            entries.find { it.hours == hours } ?: EVERY_24_HOURS
+    }
+}
+
 data class GlucoseRecordUi(
-    val id: Long = 0,
+    val id: String = "",
     val value: Int,
     val context: GlucoseContext,
     val timestamp: Long,
@@ -34,11 +46,13 @@ data class GlucoseRecordUi(
 )
 
 data class MedicationUi(
-    val id: Long = 0,
+    val id: String = "",
     val name: String,
     val dose: String,
     val scheduledHour: Int,
     val scheduledMinute: Int,
+    val intervalHours: Int = 24,
+    val recommendForHighGlucose: Boolean = false,
     val isActive: Boolean = true
 )
 

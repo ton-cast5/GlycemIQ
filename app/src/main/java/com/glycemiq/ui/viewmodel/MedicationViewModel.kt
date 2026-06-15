@@ -2,8 +2,9 @@ package com.glycemiq.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.glycemiq.data.local.entity.Medication
+import com.glycemiq.data.repository.DataSyncManager
 import com.glycemiq.data.repository.MedicationRepository
+import com.glycemiq.domain.model.MedicationInterval
 import com.glycemiq.domain.model.MedicationUi
 import com.glycemiq.notification.MedicationAlarmScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,9 +18,11 @@ import javax.inject.Inject
 data class MedicationFormState(
     val name: String = "",
     val dose: String = "",
-    val hour: String = "08",
-    val minute: String = "00",
-    val editingId: Long? = null,
+    val hour: Int = 8,
+    val minute: Int = 0,
+    val interval: MedicationInterval = MedicationInterval.EVERY_24_HOURS,
+    val recommendForHighGlucose: Boolean = false,
+    val editingId: String? = null,
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
     val successMessage: String? = null
@@ -34,7 +37,8 @@ data class MedicationListState(
 @HiltViewModel
 class MedicationViewModel @Inject constructor(
     private val medicationRepository: MedicationRepository,
-    private val alarmScheduler: MedicationAlarmScheduler
+    private val alarmScheduler: MedicationAlarmScheduler,
+    dataSyncManager: DataSyncManager
 ) : ViewModel() {
 
     private val _formState = MutableStateFlow(MedicationFormState())
@@ -44,6 +48,7 @@ class MedicationViewModel @Inject constructor(
     val listState: StateFlow<MedicationListState> = _listState.asStateFlow()
 
     init {
+        viewModelScope.launch { dataSyncManager.syncAll() }
         loadMedications()
     }
 
@@ -51,16 +56,10 @@ class MedicationViewModel @Inject constructor(
         viewModelScope.launch {
             medicationRepository.getAllMedications()
                 .catch { e ->
-                    _listState.value = MedicationListState(
-                        isLoading = false,
-                        errorMessage = e.message
-                    )
+                    _listState.value = MedicationListState(isLoading = false, errorMessage = e.message)
                 }
                 .collect { medications ->
-                    _listState.value = MedicationListState(
-                        medications = medications,
-                        isLoading = false
-                    )
+                    _listState.value = MedicationListState(medications = medications, isLoading = false)
                 }
         }
     }
@@ -73,22 +72,26 @@ class MedicationViewModel @Inject constructor(
         _formState.value = _formState.value.copy(dose = dose, errorMessage = null)
     }
 
-    fun updateHour(hour: String) {
-        val filtered = hour.filter { it.isDigit() }.take(2)
-        _formState.value = _formState.value.copy(hour = filtered)
+    fun updateTime(hour: Int, minute: Int) {
+        _formState.value = _formState.value.copy(hour = hour, minute = minute)
     }
 
-    fun updateMinute(minute: String) {
-        val filtered = minute.filter { it.isDigit() }.take(2)
-        _formState.value = _formState.value.copy(minute = filtered)
+    fun updateInterval(interval: MedicationInterval) {
+        _formState.value = _formState.value.copy(interval = interval)
+    }
+
+    fun updateRecommendForHigh(checked: Boolean) {
+        _formState.value = _formState.value.copy(recommendForHighGlucose = checked)
     }
 
     fun startEditing(medication: MedicationUi) {
         _formState.value = MedicationFormState(
             name = medication.name,
             dose = medication.dose,
-            hour = String.format("%02d", medication.scheduledHour),
-            minute = String.format("%02d", medication.scheduledMinute),
+            hour = medication.scheduledHour,
+            minute = medication.scheduledMinute,
+            interval = MedicationInterval.fromHours(medication.intervalHours),
+            recommendForHighGlucose = medication.recommendForHighGlucose,
             editingId = medication.id
         )
     }
@@ -99,8 +102,6 @@ class MedicationViewModel @Inject constructor(
 
     fun saveMedication() {
         val current = _formState.value
-        val hour = current.hour.toIntOrNull()
-        val minute = current.minute.toIntOrNull()
 
         if (current.name.isBlank()) {
             _formState.value = current.copy(errorMessage = "El nombre es obligatorio")
@@ -108,14 +109,6 @@ class MedicationViewModel @Inject constructor(
         }
         if (current.dose.isBlank()) {
             _formState.value = current.copy(errorMessage = "La dosis es obligatoria")
-            return
-        }
-        if (hour == null || hour !in 0..23) {
-            _formState.value = current.copy(errorMessage = "Hora inválida (0-23)")
-            return
-        }
-        if (minute == null || minute !in 0..59) {
-            _formState.value = current.copy(errorMessage = "Minutos inválidos (0-59)")
             return
         }
 
@@ -128,36 +121,29 @@ class MedicationViewModel @Inject constructor(
                         val updated = existing.copy(
                             name = current.name.trim(),
                             dose = current.dose.trim(),
-                            scheduledHour = hour,
-                            scheduledMinute = minute
+                            scheduledHour = current.hour,
+                            scheduledMinute = current.minute,
+                            intervalHours = current.interval.hours,
+                            recommendForHighGlucose = current.recommendForHighGlucose
                         )
                         medicationRepository.updateMedication(updated)
                         alarmScheduler.cancelAlarm(updated.id)
-                        scheduleAlarm(updated)
+                        if (updated.isActive) alarmScheduler.scheduleAlarm(updated)
                     }
                 } else {
                     val id = medicationRepository.addMedication(
-                        current.name.trim(),
-                        current.dose.trim(),
-                        hour,
-                        minute
+                        name = current.name.trim(),
+                        dose = current.dose.trim(),
+                        hour = current.hour,
+                        minute = current.minute,
+                        intervalHours = current.interval.hours,
+                        recommendForHighGlucose = current.recommendForHighGlucose
                     )
-                    scheduleAlarm(
-                        MedicationUi(
-                            id = id,
-                            name = current.name.trim(),
-                            dose = current.dose.trim(),
-                            scheduledHour = hour,
-                            scheduledMinute = minute
-                        )
-                    )
+                    val med = medicationRepository.getMedicationById(id)
+                    if (med != null) alarmScheduler.scheduleAlarm(med)
                 }
                 _formState.value = MedicationFormState(
-                    successMessage = if (current.editingId != null) {
-                        "Medicamento actualizado"
-                    } else {
-                        "Medicamento registrado"
-                    }
+                    successMessage = if (current.editingId != null) "Actualizado" else "Registrado"
                 )
             } catch (e: Exception) {
                 _formState.value = current.copy(
@@ -168,7 +154,7 @@ class MedicationViewModel @Inject constructor(
         }
     }
 
-    fun deleteMedication(id: Long) {
+    fun deleteMedication(id: String) {
         viewModelScope.launch {
             alarmScheduler.cancelAlarm(id)
             medicationRepository.deleteMedication(id)
@@ -180,24 +166,11 @@ class MedicationViewModel @Inject constructor(
             val updated = medication.copy(isActive = !medication.isActive)
             medicationRepository.updateMedication(updated)
             if (updated.isActive) {
-                scheduleAlarm(updated)
+                alarmScheduler.scheduleAlarm(updated)
             } else {
                 alarmScheduler.cancelAlarm(updated.id)
             }
         }
-    }
-
-    private fun scheduleAlarm(medication: MedicationUi) {
-        alarmScheduler.scheduleAlarm(
-            Medication(
-                id = medication.id,
-                name = medication.name,
-                dose = medication.dose,
-                scheduledHour = medication.scheduledHour,
-                scheduledMinute = medication.scheduledMinute,
-                isActive = medication.isActive
-            )
-        )
     }
 
     fun clearMessages() {

@@ -2,6 +2,7 @@ package com.glycemiq.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.glycemiq.data.repository.DataSyncManager
 import com.glycemiq.data.repository.GlucoseRepository
 import com.glycemiq.domain.model.GlucoseContext
 import com.glycemiq.domain.model.GlucoseLevel
@@ -33,7 +34,8 @@ data class GlucoseListState(
 
 @HiltViewModel
 class GlucoseViewModel @Inject constructor(
-    private val glucoseRepository: GlucoseRepository
+    private val glucoseRepository: GlucoseRepository,
+    dataSyncManager: DataSyncManager
 ) : ViewModel() {
 
     private val _formState = MutableStateFlow(GlucoseFormState())
@@ -43,6 +45,7 @@ class GlucoseViewModel @Inject constructor(
     val listState: StateFlow<GlucoseListState> = _listState.asStateFlow()
 
     init {
+        viewModelScope.launch { dataSyncManager.syncAll() }
         loadRecords()
     }
 
@@ -50,16 +53,10 @@ class GlucoseViewModel @Inject constructor(
         viewModelScope.launch {
             glucoseRepository.getAllRecords()
                 .catch { e ->
-                    _listState.value = GlucoseListState(
-                        isLoading = false,
-                        errorMessage = e.message
-                    )
+                    _listState.value = GlucoseListState(isLoading = false, errorMessage = e.message)
                 }
                 .collect { records ->
-                    _listState.value = GlucoseListState(
-                        records = records,
-                        isLoading = false
-                    )
+                    _listState.value = GlucoseListState(records = records, isLoading = false)
                 }
         }
     }
@@ -96,9 +93,7 @@ class GlucoseViewModel @Inject constructor(
             _formState.value = current.copy(isSaving = true, errorMessage = null)
             try {
                 glucoseRepository.addRecord(value, current.context, current.timestamp)
-                _formState.value = GlucoseFormState(
-                    successMessage = "Registro guardado correctamente"
-                )
+                _formState.value = GlucoseFormState(successMessage = "Registro guardado")
             } catch (e: Exception) {
                 _formState.value = current.copy(
                     isSaving = false,
@@ -108,9 +103,13 @@ class GlucoseViewModel @Inject constructor(
         }
     }
 
-    fun deleteRecord(id: Long) {
+    fun deleteRecord(id: String) {
         viewModelScope.launch {
-            glucoseRepository.deleteRecord(id)
+            try {
+                glucoseRepository.deleteRecord(id)
+            } catch (e: Exception) {
+                _listState.value = _listState.value.copy(errorMessage = e.message)
+            }
         }
     }
 

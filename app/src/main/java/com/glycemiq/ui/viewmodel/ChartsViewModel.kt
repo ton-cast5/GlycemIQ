@@ -2,6 +2,7 @@ package com.glycemiq.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.glycemiq.data.repository.DataSyncManager
 import com.glycemiq.data.repository.GlucoseRepository
 import com.glycemiq.domain.model.ChartDataPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,7 +27,8 @@ data class ChartsUiState(
 
 @HiltViewModel
 class ChartsViewModel @Inject constructor(
-    private val glucoseRepository: GlucoseRepository
+    private val glucoseRepository: GlucoseRepository,
+    dataSyncManager: DataSyncManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChartsUiState())
@@ -35,16 +37,15 @@ class ChartsViewModel @Inject constructor(
     private var cachedRecords = emptyList<com.glycemiq.domain.model.GlucoseRecordUi>()
 
     init {
-        loadData()
+        viewModelScope.launch {
+            dataSyncManager.syncAll()
+            loadData()
+        }
     }
 
-    private fun loadData() {
-        viewModelScope.launch {
-            glucoseRepository.getRecordsForCharts(60).collect { records ->
-                cachedRecords = records
-                updateChartData(_uiState.value.chartType)
-            }
-        }
+    private suspend fun loadData() {
+        cachedRecords = glucoseRepository.getRecordsForCharts(60)
+        updateChartData(_uiState.value.chartType)
     }
 
     fun setChartType(type: ChartType) {

@@ -16,7 +16,7 @@ Aplicación Android profesional para el monitoreo inteligente de glucosa, orient
 - Kotlin
 - MVVM + StateFlow
 - Jetpack Compose + Material Design 3
-- Room Database
+- Supabase (PostgreSQL REST API)
 - Hilt
 - AlarmManager
 - PdfDocument (Android PDF)
@@ -27,6 +27,17 @@ Aplicación Android profesional para el monitoreo inteligente de glucosa, orient
 - JDK 17
 - Android SDK 35
 - minSdk 26
+
+## Base de datos Supabase
+
+1. Abre el [SQL Editor de Supabase](https://supabase.com/dashboard) en tu proyecto
+2. Ejecuta el script `supabase/schema.sql`
+3. Configura en `local.properties` (opcional):
+
+```
+SUPABASE_URL=https://gggfcecvukanwogbinaf.supabase.co
+SUPABASE_KEY=sb_publishable_k0m-twsbHF_NKauP0WPvTw_Ec9VEOTw
+```
 
 ## Compilación
 
