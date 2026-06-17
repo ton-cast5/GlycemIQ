@@ -13,7 +13,8 @@ data class GlucoseRecordDto(
     @SerialName("device_id") val deviceId: String,
     val value: Int,
     val context: String,
-    val timestamp: Long
+    val timestamp: Long,
+    @SerialName("recorded_at") val recordedAt: String? = null
 )
 
 @Serializable
@@ -34,7 +35,8 @@ data class GlucoseRecordInsertDto(
     @SerialName("device_id") val deviceId: String,
     val value: Int,
     val context: String,
-    val timestamp: Long
+    val timestamp: Long,
+    @SerialName("recorded_at") val recordedAt: String
 )
 
 @Serializable

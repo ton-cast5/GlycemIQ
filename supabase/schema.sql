@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS glucose_records (
     value INTEGER NOT NULL CHECK (value >= 20 AND value <= 600),
     context TEXT NOT NULL CHECK (context IN ('FASTING', 'BEFORE_MEAL', 'AFTER_MEAL')),
     timestamp BIGINT NOT NULL,
+    recorded_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

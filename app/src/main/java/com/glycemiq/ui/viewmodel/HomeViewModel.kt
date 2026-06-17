@@ -2,7 +2,6 @@ package com.glycemiq.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.glycemiq.data.repository.DataSyncManager
 import com.glycemiq.data.repository.GlucoseRepository
 import com.glycemiq.data.repository.MedicationRepository
 import com.glycemiq.data.repository.RecommendationEngine
@@ -28,17 +27,13 @@ data class HomeUiState(
 class HomeViewModel @Inject constructor(
     glucoseRepository: GlucoseRepository,
     medicationRepository: MedicationRepository,
-    private val recommendationEngine: RecommendationEngine,
-    dataSyncManager: DataSyncManager
+    private val recommendationEngine: RecommendationEngine
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
-            dataSyncManager.syncAll()
-        }
         viewModelScope.launch {
             combine(
                 glucoseRepository.getAllRecords(),

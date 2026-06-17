@@ -54,12 +54,14 @@ fun ChartsScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (state.isEmpty) {
-            EmptyStateMessage("No hay datos suficientes para mostrar gráficas.")
+        if (state.isLoading) {
+            EmptyStateMessage("Cargando datos...")
+        } else if (state.isEmpty) {
+            EmptyStateMessage("Registra al menos un nivel de glucosa para ver la gráfica.")
         } else {
             GlycemCard(contentPadding = 12.dp) {
                 Text(
-                    text = state.chartType.label,
+                    text = "${state.chartType.label} (${state.recordCount} registro${if (state.recordCount == 1) "" else "s"})",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
                 )

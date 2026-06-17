@@ -13,6 +13,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Instant
@@ -56,15 +62,6 @@ class GlucoseRepository @Inject constructor(
         }
     }
 
-    suspend fun getRecordsForCharts(days: Int = 60): List<GlucoseRecordUi> {
-        val startTime = Instant.now()
-            .atZone(DateTimeUtils.MEXICO_ZONE)
-            .minus(days.toLong(), ChronoUnit.DAYS)
-            .toInstant()
-            .toEpochMilli()
-        return supabaseApi.fetchGlucoseRecordsSince(startTime)
-    }
-
     fun calculateDailyAverages(records: List<GlucoseRecordUi>): List<ChartDataPoint> =
         records
             .groupBy { DateTimeUtils.formatDate(it.timestamp) }
@@ -90,13 +87,15 @@ class GlucoseRepository @Inject constructor(
             .sortedBy { it.label }
 
     fun toIndividualPoints(records: List<GlucoseRecordUi>): List<ChartDataPoint> =
-        records.map { record ->
-            ChartDataPoint(
-                DateTimeUtils.formatDateTime(record.timestamp),
-                record.value.toFloat(),
-                record.level
-            )
-        }
+        records
+            .sortedBy { it.timestamp }
+            .map { record ->
+                ChartDataPoint(
+                    DateTimeUtils.formatDateTime(record.timestamp),
+                    record.value.toFloat(),
+                    record.level
+                )
+            }
 }
 
 @Singleton
@@ -213,8 +212,22 @@ class DataSyncManager @Inject constructor(
     private val glucoseRepository: GlucoseRepository,
     private val medicationRepository: MedicationRepository
 ) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val mutex = Mutex()
+    private var debounceJob: Job? = null
+
     suspend fun syncAll() {
-        glucoseRepository.refresh()
-        medicationRepository.refresh()
+        mutex.withLock {
+            glucoseRepository.refresh()
+            medicationRepository.refresh()
+        }
+    }
+
+    fun syncAllDebounced(delayMs: Long = 350L) {
+        debounceJob?.cancel()
+        debounceJob = scope.launch {
+            delay(delayMs)
+            syncAll()
+        }
     }
 }

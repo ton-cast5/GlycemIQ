@@ -32,7 +32,8 @@ Aplicación Android profesional para el monitoreo inteligente de glucosa, orient
 
 1. Abre el [SQL Editor de Supabase](https://supabase.com/dashboard) en tu proyecto
 2. Ejecuta el script `supabase/schema.sql`
-3. Configura en `local.properties` (opcional):
+3. Ejecuta el script `supabase/002_realtime_mexico.sql` (Realtime + hora México)
+4. Configura en `local.properties` (opcional):
 
 ```
 SUPABASE_URL=https://gggfcecvukanwogbinaf.supabase.co

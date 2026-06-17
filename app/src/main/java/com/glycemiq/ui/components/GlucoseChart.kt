@@ -121,6 +121,13 @@ fun GlucoseChart(
                     }
 
                     points.forEach { (offset, point) ->
+                        drawLine(
+                            color = glucoseLevelColor(point.level).copy(alpha = 0.35f),
+                            start = Offset(offset.x, canvasHeight),
+                            end = Offset(offset.x, offset.y),
+                            strokeWidth = if (points.size == 1) 24f else 12f,
+                            cap = StrokeCap.Round
+                        )
                         drawCircle(color = Color.White, radius = 8f, center = offset)
                         drawCircle(color = glucoseLevelColor(point.level), radius = 6f, center = offset)
                     }

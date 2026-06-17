@@ -2,7 +2,6 @@ package com.glycemiq.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.glycemiq.data.repository.DataSyncManager
 import com.glycemiq.data.repository.GlucoseRepository
 import com.glycemiq.domain.model.GlucoseContext
 import com.glycemiq.domain.model.GlucoseLevel
@@ -34,8 +33,7 @@ data class GlucoseListState(
 
 @HiltViewModel
 class GlucoseViewModel @Inject constructor(
-    private val glucoseRepository: GlucoseRepository,
-    dataSyncManager: DataSyncManager
+    private val glucoseRepository: GlucoseRepository
 ) : ViewModel() {
 
     private val _formState = MutableStateFlow(GlucoseFormState())
@@ -45,7 +43,6 @@ class GlucoseViewModel @Inject constructor(
     val listState: StateFlow<GlucoseListState> = _listState.asStateFlow()
 
     init {
-        viewModelScope.launch { dataSyncManager.syncAll() }
         loadRecords()
     }
 

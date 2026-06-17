@@ -8,6 +8,7 @@ import com.glycemiq.data.remote.dto.MedicationInsertDto
 import com.glycemiq.data.remote.dto.toUi
 import com.glycemiq.domain.model.GlucoseRecordUi
 import com.glycemiq.domain.model.MedicationUi
+import com.glycemiq.util.DateTimeUtils
 import com.glycemiq.util.DeviceIdProvider
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -33,8 +34,6 @@ class SupabaseApi @Inject constructor(
 
     private val deviceId get() = deviceIdProvider.getDeviceId()
 
-    // --- Glucose ---
-
     suspend fun fetchGlucoseRecords(): List<GlucoseRecordUi> =
         client.get("$baseUrl/glucose_records") {
             supabaseHeaders()
@@ -43,19 +42,10 @@ class SupabaseApi @Inject constructor(
             parameter("select", "*")
         }.body<List<GlucoseRecordDto>>().map { it.toUi() }
 
-    suspend fun fetchGlucoseRecordsSince(startTime: Long): List<GlucoseRecordUi> =
-        client.get("$baseUrl/glucose_records") {
-            supabaseHeaders()
-            parameter("device_id", "eq.$deviceId")
-            parameter("timestamp", "gte.$startTime")
-            parameter("order", "timestamp.asc")
-            parameter("select", "*")
-        }.body<List<GlucoseRecordDto>>().map { it.toUi() }
-
     suspend fun insertGlucoseRecord(
         value: Int,
         context: String,
-        timestamp: Long
+        timestamp: Long = DateTimeUtils.nowMillis()
     ): GlucoseRecordUi {
         val result = client.post("$baseUrl/glucose_records") {
             supabaseHeaders(returnRepresentation = true)
@@ -64,7 +54,8 @@ class SupabaseApi @Inject constructor(
                     deviceId = deviceId,
                     value = value,
                     context = context,
-                    timestamp = timestamp
+                    timestamp = timestamp,
+                    recordedAt = DateTimeUtils.nowMexicoIso()
                 )
             )
         }.body<List<GlucoseRecordDto>>()
@@ -77,8 +68,6 @@ class SupabaseApi @Inject constructor(
             parameter("id", "eq.$id")
         }
     }
-
-    // --- Medications ---
 
     suspend fun fetchMedications(): List<MedicationUi> =
         client.get("$baseUrl/medications") {

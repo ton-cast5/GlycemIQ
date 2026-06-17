@@ -2,7 +2,6 @@ package com.glycemiq.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.glycemiq.data.repository.DataSyncManager
 import com.glycemiq.data.repository.MedicationRepository
 import com.glycemiq.domain.model.MedicationInterval
 import com.glycemiq.domain.model.MedicationUi
@@ -37,8 +36,7 @@ data class MedicationListState(
 @HiltViewModel
 class MedicationViewModel @Inject constructor(
     private val medicationRepository: MedicationRepository,
-    private val alarmScheduler: MedicationAlarmScheduler,
-    dataSyncManager: DataSyncManager
+    private val alarmScheduler: MedicationAlarmScheduler
 ) : ViewModel() {
 
     private val _formState = MutableStateFlow(MedicationFormState())
@@ -48,7 +46,6 @@ class MedicationViewModel @Inject constructor(
     val listState: StateFlow<MedicationListState> = _listState.asStateFlow()
 
     init {
-        viewModelScope.launch { dataSyncManager.syncAll() }
         loadMedications()
     }
 

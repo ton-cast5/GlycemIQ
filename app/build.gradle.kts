@@ -98,8 +98,11 @@ dependencies {
 
     implementation("io.ktor:ktor-client-android:3.0.3")
     implementation("io.ktor:ktor-client-content-negotiation:3.0.3")
+    implementation("io.ktor:ktor-client-websockets:3.0.3")
     implementation("io.ktor:ktor-serialization-kotlinx-json:3.0.3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+
+    implementation("androidx.lifecycle:lifecycle-process:2.8.7")
 
     implementation("androidx.work:work-runtime-ktx:2.10.0")
 
