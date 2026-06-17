@@ -46,9 +46,9 @@ class GlucoseRepository @Inject constructor(
     fun getRecentRecords(limit: Int = 5): Flow<List<GlucoseRecordUi>> =
         _records.asStateFlow().map { it.take(limit) }
 
-    suspend fun addRecord(value: Int, context: GlucoseContext, timestamp: Long = DateTimeUtils.nowMillis()): String {
+    suspend fun addRecord(value: Int, context: GlucoseContext): String {
         require(value in 20..600) { "El nivel de glucosa debe estar entre 20 y 600 mg/dL" }
-        val record = supabaseApi.insertGlucoseRecord(value, context.name, timestamp)
+        val record = supabaseApi.insertGlucoseRecord(value, context.name)
         mutex.withLock {
             _records.value = listOf(record) + _records.value
         }

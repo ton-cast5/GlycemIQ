@@ -89,7 +89,7 @@ class GlucoseViewModel @Inject constructor(
         viewModelScope.launch {
             _formState.value = current.copy(isSaving = true, errorMessage = null)
             try {
-                glucoseRepository.addRecord(value, current.context, current.timestamp)
+                glucoseRepository.addRecord(value, current.context)
                 _formState.value = GlucoseFormState(successMessage = "Registro guardado")
             } catch (e: Exception) {
                 _formState.value = current.copy(

@@ -38,15 +38,11 @@ class SupabaseApi @Inject constructor(
         client.get("$baseUrl/glucose_records") {
             supabaseHeaders()
             parameter("device_id", "eq.$deviceId")
-            parameter("order", "timestamp.desc")
+            parameter("order", "recorded_at.desc")
             parameter("select", "*")
         }.body<List<GlucoseRecordDto>>().map { it.toUi() }
 
-    suspend fun insertGlucoseRecord(
-        value: Int,
-        context: String,
-        timestamp: Long = DateTimeUtils.nowMillis()
-    ): GlucoseRecordUi {
+    suspend fun insertGlucoseRecord(value: Int, context: String): GlucoseRecordUi {
         val result = client.post("$baseUrl/glucose_records") {
             supabaseHeaders(returnRepresentation = true)
             setBody(
@@ -54,7 +50,6 @@ class SupabaseApi @Inject constructor(
                     deviceId = deviceId,
                     value = value,
                     context = context,
-                    timestamp = timestamp,
                     recordedAt = DateTimeUtils.nowMexicoIso()
                 )
             )

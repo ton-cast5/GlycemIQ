@@ -4,6 +4,7 @@ import com.glycemiq.domain.model.GlucoseContext
 import com.glycemiq.domain.model.GlucoseLevel
 import com.glycemiq.domain.model.GlucoseRecordUi
 import com.glycemiq.domain.model.MedicationUi
+import com.glycemiq.util.DateTimeUtils
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -13,8 +14,7 @@ data class GlucoseRecordDto(
     @SerialName("device_id") val deviceId: String,
     val value: Int,
     val context: String,
-    val timestamp: Long,
-    @SerialName("recorded_at") val recordedAt: String? = null
+    @SerialName("recorded_at") val recordedAt: String
 )
 
 @Serializable
@@ -35,7 +35,6 @@ data class GlucoseRecordInsertDto(
     @SerialName("device_id") val deviceId: String,
     val value: Int,
     val context: String,
-    val timestamp: Long,
     @SerialName("recorded_at") val recordedAt: String
 )
 
@@ -55,7 +54,7 @@ fun GlucoseRecordDto.toUi(): GlucoseRecordUi = GlucoseRecordUi(
     id = id.orEmpty(),
     value = value,
     context = GlucoseContext.fromName(context),
-    timestamp = timestamp,
+    timestamp = DateTimeUtils.parseRecordedAtToMillis(recordedAt),
     level = GlucoseLevel.classify(value)
 )
 
