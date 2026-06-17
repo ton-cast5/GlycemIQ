@@ -10,10 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.glycemiq.domain.model.GlucoseContext
 import com.glycemiq.ui.components.GlucoseLevelBadge
+import com.glycemiq.ui.components.GlucoseRecordItem
 import com.glycemiq.ui.components.GlycemCard
 import com.glycemiq.ui.components.GlycemNumericField
 import com.glycemiq.ui.components.GlycemPrimaryButton
@@ -128,33 +125,10 @@ fun GlucoseScreen(
             )
         } else {
             listState.records.forEach { record ->
-                GlycemCard(
-                    modifier = Modifier.padding(bottom = 8.dp),
-                    contentPadding = 12.dp
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "${record.context.label} · ${DateTimeUtils.formatDateTime(record.timestamp)}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 2
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            GlucoseLevelBadge(level = record.level, value = record.value, compact = true)
-                        }
-                        IconButton(onClick = { viewModel.deleteRecord(record.id) }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Eliminar",
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-                }
+                GlucoseRecordItem(
+                    record = record,
+                    onDelete = { viewModel.deleteRecord(record.id) }
+                )
             }
         }
     }

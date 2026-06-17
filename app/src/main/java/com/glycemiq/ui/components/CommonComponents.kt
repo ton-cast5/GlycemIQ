@@ -36,7 +36,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.glycemiq.domain.model.GlucoseLevel
+import com.glycemiq.domain.model.GlucoseRecordUi
 import com.glycemiq.ui.theme.GlucoseCritical
+import com.glycemiq.util.DateTimeUtils
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import com.glycemiq.ui.theme.GlucoseCriticalContainer
 import com.glycemiq.ui.theme.GlucoseModerate
 import com.glycemiq.ui.theme.GlucoseModerateContainer
@@ -83,6 +89,43 @@ fun GlycemCard(
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
             Column(modifier = innerPadding) { content() }
+        }
+    }
+}
+
+@Composable
+fun GlucoseRecordItem(
+    record: GlucoseRecordUi,
+    modifier: Modifier = Modifier,
+    onDelete: (() -> Unit)? = null
+) {
+    GlycemCard(
+        modifier = modifier.padding(bottom = 8.dp),
+        contentPadding = 12.dp
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "${record.context.label} · ${DateTimeUtils.formatDateTime(record.timestamp)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                GlucoseLevelBadge(level = record.level, value = record.value, compact = true)
+            }
+            if (onDelete != null) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Eliminar",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
         }
     }
 }

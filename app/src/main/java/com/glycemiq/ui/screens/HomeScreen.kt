@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.glycemiq.R
 import com.glycemiq.ui.components.EmptyStateMessage
-import com.glycemiq.ui.components.GlucoseLevelBadge
+import com.glycemiq.ui.components.GlucoseRecordItem
 import com.glycemiq.ui.components.GlycemCard
 import com.glycemiq.ui.components.SectionTitle
 import com.glycemiq.ui.viewmodel.HomeViewModel
@@ -90,32 +90,13 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        SectionTitle("Registros recientes")
+        SectionTitle("Registros recientes", compact = true)
 
         if (state.recentRecords.isEmpty()) {
             EmptyStateMessage("Aún no hay registros. Agrega tu primer nivel de glucosa.")
         } else {
             state.recentRecords.forEach { record ->
-                GlycemCard(modifier = Modifier.padding(bottom = 12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = DateTimeUtils.formatDateTime(record.timestamp),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = record.context.label,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                        GlucoseLevelBadge(level = record.level, value = record.value)
-                    }
-                }
+                GlucoseRecordItem(record = record)
             }
         }
 
